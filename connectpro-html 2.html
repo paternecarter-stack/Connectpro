@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ConnectPro</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#dc2626"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="ConnectPro"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').then(()=>console.log('SW registered')).catch(()=>{});
+  });
+}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0000;font-family:'Segoe UI',sans-serif;color:#fff}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#dc262666;border-radius:10px}
+select option{background:#0a0000;color:#fff}
+@keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+@keyframes neonPulse{0%,100%{box-shadow:0 0 8px #dc262666,0 0 20px #dc262633}50%{box-shadow:0 0 16px #dc2626aa,0 0 40px #fbbf2455}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.cp-card{transition:transform .2s,box-shadow .2s;animation:fadeIn .3s ease}
+.cp-card:hover{transform:translateY(-2px)}
+#bg{position:fixed;inset:0;z-index:0}
+#app{position:relative;z-index:1}
+.stripe-top{position:fixed;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#dc2626,#fbbf24,#fff,#dc2626);z-index:10}
+.stripe-bot{position:fixed;bottom:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#fbbf24,#dc2626,#fff,#fbbf24);z-index:10}
+</style>
+</head>
+<body>
+<div class="stripe-top"></div>
+<div class="stripe-bot"></div>
+<div id="bg"></div>
+<div id="app"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+const fbApp = initializeApp({
+  apiKey:"AIzaSyAEjjDWxHKyeuHpZcJcsPG-3Ufu2VkhWyY",
+  authDomain:"connectpro-2b057.firebaseapp.com",
+  projectId:"connectpro-2b057",
+  storageBucket:"connectpro-2b057.firebasestorage.app",
+  messagingSenderId:"341203905514",
+  appId:"1:341203905514:web:b3a85e4e150005ba3e6093"
+});
+const db = getFirestore(fbApp);
+window.__fb = { db, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot };
+document.dispatchEvent(new Event("fb-ready"));
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+<script type="text/babel">
+const {useState,useEffect,useRef} = React;
+
+const BG_IMAGES=[
+  "https://images.unsplash.com/photo-1521737852567-6949f3f9f2b5?w=1200&q=80&fit=crop",
+  "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=1200&q=80&fit=crop",
+  "https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200&q=80&fit=crop",
+  "https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=1200&q=80&fit=crop",
+  "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80&fit=crop",
+  "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=1200&q=80&fit=crop",
+];
+
+const DEFAULT_CATS=[
+  {id:"all",label:"Tous",icon:"🌐",color:"#dc2626",glow:"#dc262633",fixed:true},
+  {id:"telephone",label:"Téléphones",icon:"📱",color:"#dc2626",glow:"#dc262633",fixed:true},
+  {id:"informatique",label:"Informatique",icon:"💻",color:"#dc2626",glow:"#dc262633",fixed:true},
+  {id:"jeux",label:"Jeux Vidéo",icon:"🎮",color:"#fbbf24",glow:"#fbbf2433",fixed:true},
+  {id:"electricite",label:"Électricité",icon:"⚡",color:"#fbbf24",glow:"#fbbf2433",fixed:true},
+  {id:"electromenager",label:"Électroménager",icon:"🏠",color:"#dc2626",glow:"#dc262633",fixed:true},
+  {id:"autre",label:"Autre",icon:"📦",color:"#fff",glow:"#ffffff33",fixed:true},
+];
+const CAT_COLORS=["#dc2626","#b91c1c","#fbbf24","#f59e0b","#fff","#e5e7eb","#ef4444","#d97706","#991b1b","#92400e","#374151","#111827"];
+const CAT_ICONS=["🏥","🚗","🍔","💇","🔧","📚","🏗️","💊","🎨","🧴","👗","🏋️","🍕","✈️","🏦","⚽","🎵","📷","🧹","🐾","🛵","🌿","💰","🖨️","📺","🛒","🎓","⚙️","🪑","🧱"];
+const CATS_KEY="connectpro_cats_v4";
+const ADMIN_KEY="connectpro_admin";
+const ADMIN_PWD="kkbp1099";
+const emptyForm={name:"",category:"telephone",phone:"",whatsapp:"",email:"",description:"",ville:"",photo:null};
+
+function getCat(cats,id){return cats.find(c=>c.id===id)||cats[cats.length-1];}
+
+// Background
+function BgSlider(){
+  const [idx,setIdx]=useState(0);
+  const [fade,setFade]=useState(true);
+  useEffect(()=>{
+    const iv=setInterval(()=>{
+      setFade(false);
+      setTimeout(()=>{setIdx(i=>(i+1)%BG_IMAGES.length);setFade(true);},600);
+    },5000);
+    return()=>clearInterval(iv);
+  },[]);
+  return React.createElement("div",{style:{position:"absolute",inset:0}},
+    React.createElement("div",{style:{position:"absolute",inset:0,backgroundImage:`url(${BG_IMAGES[idx]})`,backgroundSize:"cover",backgroundPosition:"center",transition:"opacity 0.6s ease",opacity:fade?1:0}}),
+    React.createElement("div",{style:{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(140,0,0,0.88) 0%,rgba(5,5,5,0.90) 50%,rgba(150,110,0,0.82) 100%)"}}),
+    React.createElement("div",{style:{position:"absolute",bottom:12,left:"50%",transform:"translateX(-50%)",display:"flex",gap:6,zIndex:2}},
+      BG_IMAGES.map((_,i)=>React.createElement("div",{key:i,onClick:()=>setIdx(i),style:{width:i===idx?20:6,height:6,borderRadius:3,background:i===idx?"#fbbf24":"rgba(255,255,255,0.35)",transition:"all 0.3s",cursor:"pointer"}}))
+    )
+  );
+}
+
+function Avatar({photo,icon,size=48,color}){
+  if(photo) return React.createElement("img",{src:photo,alt:"",style:{width:size,height:size,borderRadius:"50%",objectFit:"cover",border:"2px solid "+color,boxShadow:"0 0 10px "+color+"88",flexShrink:0}});
+  return React.createElement("div",{style:{width:size,height:size,borderRadius:"50%",background:"rgba(220,38,38,0.2)",border:"2px solid "+color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.45,flexShrink:0,boxShadow:"0 0 12px "+color+"66"}},icon);
+}
+
+function PhotoPicker({value,onChange}){
+  const ref=useRef();
+  function handleFile(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>onChange(ev.target.result);r.readAsDataURL(file);}
+  return React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},
+    value?React.createElement("img",{src:value,alt:"",style:{width:64,height:64,borderRadius:10,objectFit:"cover",border:"2px solid #dc2626"}})
+      :React.createElement("div",{style:{width:64,height:64,borderRadius:10,background:"rgba(220,38,38,0.1)",border:"2px dashed #dc2626",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}},"📷"),
+    React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:6}},
+      React.createElement("button",{onClick:()=>ref.current.click(),style:{background:"linear-gradient(135deg,#dc2626,#b91c1c)",border:"none",borderRadius:8,padding:"7px 14px",color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"}},value?"Changer":"Ajouter une photo"),
+      value&&React.createElement("button",{onClick:()=>onChange(null),style:{background:"rgba(0,0,0,0.4)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:8,padding:"5px 14px",color:"#fff",fontWeight:600,fontSize:12,cursor:"pointer"}},"Supprimer")
+    ),
+    React.createElement("input",{ref,type:"file",accept:"image/*",style:{display:"none"},onChange:handleFile})
+  );
+}
+
+function Modal({children,onClose}){
+  return React.createElement("div",{onClick:onClose,style:{position:"fixed",inset:0,background:"rgba(0,0,0,.88)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}},
+    React.createElement("div",{onClick:e=>e.stopPropagation(),style:{background:"rgba(10,0,0,0.97)",backdropFilter:"blur(24px)",border:"1px solid #dc2626",boxShadow:"0 0 40px rgba(220,38,38,0.3)",borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:440,maxHeight:"90vh",overflowY:"auto",position:"relative"}},
+      React.createElement("button",{onClick:onClose,style:{position:"absolute",top:14,right:14,background:"rgba(220,38,38,0.2)",border:"1px solid #dc2626",borderRadius:8,width:28,height:28,color:"#fbbf24",cursor:"pointer",fontSize:16}},"✕"),
+      children
+    )
+  );
+}
+
+function InfoRow({icon,label,value}){
+  return React.createElement("div",{style:{background:"rgba(0,0,0,0.5)",border:"1px solid rgba(220,38,38,0.3)",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}},
+    React.createElement("span",{style:{fontSize:18}},icon),
+    React.createElement("div",null,
+      React.createElement("div",{style:{fontSize:11,color:"#fbbf24"}},label),
+      React.createElement("div",{style:{fontSize:14,fontWeight:600,color:"#fff"}},value)
+    )
+  );
+}
+
+function App(){
+  const [cats,setCats]=useState(()=>{try{const s=localStorage.getItem(CATS_KEY);return s?JSON.parse(s):DEFAULT_CATS;}catch{return DEFAULT_CATS;}});
+  const [contacts,setContacts]=useState(()=>{try{const s=localStorage.getItem("connectpro_cache");return s?JSON.parse(s):[]}catch{return [];}});
+  const [fbReady,setFbReady]=useState(false);
+  const [fbError,setFbError]=useState(null);
+  const [isAdmin,setIsAdmin]=useState(()=>{try{return localStorage.getItem(ADMIN_KEY)==="true";}catch{return false;}});
+  const [search,setSearch]=useState("");
+  const [activeCat,setActiveCat]=useState("all");
+  const [hovId,setHovId]=useState(null);
+  const [modal,setModal]=useState(null);
+  const [selected,setSelected]=useState(null);
+  const [form,setForm]=useState(emptyForm);
+  const [delConfirm,setDelConfirm]=useState(null);
+  const [catModal,setCatModal]=useState(false);
+  const [catForm,setCatForm]=useState({label:"",icon:"🏥",color:"#dc2626"});
+  const [catDel,setCatDel]=useState(null);
+  const [loginModal,setLoginModal]=useState(false);
+  const [pw,setPw]=useState("");
+  const [pwErr,setPwErr]=useState(false);
+  const [saving,setSaving]=useState(false);
+
+  useEffect(()=>{try{localStorage.setItem(CATS_KEY,JSON.stringify(cats));}catch{}},[cats]);
+
+  useEffect(()=>{
+    function setup(){
+      const fb=window.__fb;
+      if(!fb){document.addEventListener("fb-ready",setup,{once:true});return;}
+      const unsub=fb.onSnapshot(fb.collection(fb.db,"contacts"),snap=>{
+        const data=snap.docs.map(d=>({...d.data(),_id:d.id}));
+        setContacts(data);
+        try{localStorage.setItem("connectpro_cache",JSON.stringify(data));}catch{}
+        setFbReady(true);setFbError(null);
+      },err=>{setFbError(err.message);setFbReady(true);});
+      return unsub;
+    }
+    const unsub=setup();
+    return()=>typeof unsub==="function"&&unsub();
+  },[]);
+
+  function login(){
+    if(pw===ADMIN_PWD){setIsAdmin(true);try{localStorage.setItem(ADMIN_KEY,"true");}catch{}setLoginModal(false);setPw("");setPwErr(false);}
+    else setPwErr(true);
+  }
+  function logout(){setIsAdmin(false);try{localStorage.removeItem(ADMIN_KEY);}catch{}}
+
+  const filtered=contacts.filter(c=>{
+    const mc=activeCat==="all"||c.category===activeCat;
+    const q=search.toLowerCase();
+    return mc&&(!q||(c.name||"").toLowerCase().includes(q)||(c.description||"").toLowerCase().includes(q)||(c.ville||"").toLowerCase().includes(q));
+  });
+
+  function openAdd(){setForm({...emptyForm,category:cats.filter(c=>c.id!=="all")[0]?.id||"autre"});setModal("add");}
+  function openEdit(c){setForm({...c});setSelected(c);setModal("edit");}
+  function openView(c){setSelected(c);setModal("view");}
+  function closeModal(){setModal(null);setSelected(null);}
+
+  async function saveContact(){
+    if(!form.name.trim()||!form.phone.trim())return;
+    setSaving(true);
+    const fb=window.__fb;
+    const {_id,...data}=form;
+    try{
+      if(modal==="add") await fb.addDoc(fb.collection(fb.db,"contacts"),{...data,createdAt:Date.now()});
+      else await fb.updateDoc(fb.doc(fb.db,"contacts",selected._id),data);
+    }catch(e){alert("Erreur : "+e.message);}
+    setSaving(false);closeModal();
+  }
+
+  async function deleteContact(id){
+    const fb=window.__fb;
+    try{await fb.deleteDoc(fb.doc(fb.db,"contacts",id));}catch(e){alert("Erreur : "+e.message);}
+    setDelConfirm(null);closeModal();
+  }
+
+  function addCat(){
+    if(!catForm.label.trim())return;
+    const id="cat_"+Date.now(),color=catForm.color;
+    setCats(p=>[...p,{id,label:catForm.label,icon:catForm.icon,color,glow:color+"33",fixed:false}]);
+    setCatForm({label:"",icon:"🏥",color:"#dc2626"});setCatModal(false);
+  }
+  function deleteCat(id){setCats(p=>p.filter(c=>c.id!==id));setCatDel(null);if(activeCat===id)setActiveCat("all");}
+
+  const inp={width:"100%",background:"rgba(0,0,0,0.55)",border:"1px solid rgba(220,38,38,0.5)",borderRadius:8,padding:"9px 12px",color:"#fff",fontSize:14,outline:"none",boxSizing:"border-box"};
+  const lbl={fontSize:12,color:"#fbbf24",marginBottom:4,display:"block",fontWeight:700};
+  const dotColor=!fbReady?"#fbbf24":fbError?"#f87171":"#22c55e";
+
+  return(
+    <div style={{minHeight:"100vh"}}>
+
+      {/* HEADER */}
+      <div style={{background:"rgba(0,0,0,0.82)",backdropFilter:"blur(16px)",borderBottom:"2px solid #dc2626",padding:"16px 20px",position:"sticky",top:0,zIndex:50}}>
+        <div style={{maxWidth:800,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontSize:26,fontWeight:900,background:"linear-gradient(90deg,#dc2626,#fbbf24,#fff,#dc2626)",backgroundSize:"200% auto",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",animation:"shimmer 3s linear infinite"}}>⚡ ConnectPro</div>
+            <div style={{fontSize:11,color:"#fbbf24",marginTop:2,letterSpacing:2,fontWeight:700,display:"flex",alignItems:"center",gap:6}}>
+              ANNUAIRE DE PROFESSIONNELS
+              <span style={{width:7,height:7,borderRadius:"50%",background:dotColor,display:"inline-block",boxShadow:"0 0 6px "+dotColor}} title={!fbReady?"Connexion...":fbError||"Firebase ✅"}/>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            {isAdmin?(
+              <>
+                <button onClick={()=>setCatModal(true)} style={{background:"rgba(220,38,38,0.2)",border:"1px solid #dc2626",borderRadius:12,padding:"10px 14px",color:"#fbbf24",fontWeight:700,fontSize:13,cursor:"pointer"}}>🗂️</button>
+                <button onClick={openAdd} style={{background:"linear-gradient(135deg,#dc2626,#b91c1c)",border:"none",borderRadius:12,padding:"10px 20px",color:"#fff",fontWeight:800,fontSize:13,cursor:"pointer",animation:"neonPulse 2s ease-in-out infinite"}}>+ Ajouter</button>
+                <button onClick={logout} style={{background:"rgba(0,0,0,0.4)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:12,padding:"10px 14px",color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>🔓</button>
+              </>
+            ):(
+              <button onClick={()=>setLoginModal(true)} style={{background:"rgba(0,0,0,0.5)",border:"1px solid #fbbf24",borderRadius:12,padding:"10px 16px",color:"#fbbf24",fontWeight:700,fontSize:13,cursor:"pointer"}}>🔒 Admin</button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div style={{maxWidth:800,margin:"0 auto",padding:"20px 16px"}}>
+        {fbError&&contacts.length===0?(
+          <div style={{background:"rgba(220,38,38,0.1)",border:"1px solid #dc2626",borderRadius:12,padding:"20px",textAlign:"center",color:"#fbbf24"}}>
+            ⚠️ {fbError}
+            <div style={{fontSize:12,color:"#fff",marginTop:8}}>Vérifiez les règles Firestore : allow read, write: if true;</div>
+          </div>
+        ):(
+          <>
+            <input placeholder="🔍  Rechercher un professionnel, ville..." value={search} onChange={e=>setSearch(e.target.value)}
+              style={{...inp,fontSize:15,padding:"13px 16px",marginBottom:16,border:"1px solid #dc2626",borderRadius:12}}/>
+
+            <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:10,marginBottom:20}}>
+              {cats.map(cat=>(
+                <button key={cat.id} onClick={()=>setActiveCat(cat.id)} style={{
+                  background:activeCat===cat.id?"linear-gradient(135deg,#dc2626,#b91c1c)":"rgba(0,0,0,0.55)",
+                  border:"1px solid "+(activeCat===cat.id?"#dc2626":"rgba(255,255,255,0.2)"),
+                  borderRadius:20,padding:"7px 16px",color:activeCat===cat.id?"#fff":"#e5e7eb",
+                  fontWeight:700,fontSize:12,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,
+                  boxShadow:activeCat===cat.id?"0 0 16px #dc262688":"none",transition:"all 0.2s"
+                }}>{cat.icon} {cat.label}</button>
+              ))}
+            </div>
+
+            <div style={{fontSize:13,color:"#fbbf24",marginBottom:14,fontWeight:700}}>✦ {filtered.length} contact{filtered.length!==1?"s":""} trouvé{filtered.length!==1?"s":""}</div>
+
+            {filtered.length===0
+              ?<div style={{textAlign:"center",padding:"60px 20px"}}><div style={{fontSize:48}}>📭</div><div style={{marginTop:10,color:"#fbbf24"}}>{contacts.length===0?"Connectez-vous en Admin pour ajouter des contacts !":"Aucun résultat"}</div></div>
+              :<div style={{display:"grid",gap:14}}>
+                {filtered.map(c=>{
+                  const cat=getCat(cats,c.category);
+                  const isHov=hovId===c._id;
+                  return(
+                    <div key={c._id} className="cp-card" onClick={()=>openView(c)}
+                      onMouseEnter={()=>setHovId(c._id)} onMouseLeave={()=>setHovId(null)}
+                      style={{background:isHov?"rgba(30,0,0,0.95)":"rgba(0,0,0,0.72)",backdropFilter:"blur(16px)",border:"1px solid "+(isHov?"#dc2626":"rgba(255,255,255,0.15)"),borderRadius:16,padding:"16px",cursor:"pointer",borderLeft:"4px solid #dc2626",boxShadow:isHov?"0 0 24px rgba(220,38,38,0.4)":"0 4px 20px rgba(0,0,0,0.5)"}}>
+                      <div style={{display:"flex",gap:12,alignItems:"center"}}>
+                        <Avatar photo={c.photo} icon={cat.icon} size={54} color={cat.color}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                            <span style={{fontWeight:800,fontSize:15,color:"#fff"}}>{c.name}</span>
+                            <span style={{fontSize:11,background:"rgba(220,38,38,0.2)",color:"#fbbf24",padding:"2px 8px",borderRadius:10,fontWeight:700,border:"1px solid #dc262644"}}>{cat.icon} {cat.label}</span>
+                          </div>
+                          <div style={{fontSize:13,color:"#e5e7eb",marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.description}</div>
+                          <div style={{display:"flex",gap:14,fontSize:12}}>
+                            <span style={{color:"#fbbf24"}}>📞 {c.phone}</span>
+                            {c.ville&&<span style={{color:"#fff"}}>📍 {c.ville}</span>}
+                          </div>
+                        </div>
+                        {isAdmin&&(
+                          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                            <button onClick={e=>{e.stopPropagation();openEdit(c);}} style={{background:"rgba(220,38,38,0.2)",border:"1px solid #dc262688",borderRadius:8,padding:"6px 10px",color:"#fbbf24",cursor:"pointer",fontSize:14}}>✏️</button>
+                            <button onClick={e=>{e.stopPropagation();setDelConfirm(c);}} style={{background:"rgba(0,0,0,0.4)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:8,padding:"6px 10px",color:"#f87171",cursor:"pointer",fontSize:14}}>🗑️</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            }
+          </>
+        )}
+      </div>
+
+      {/* LOGIN */}
+      {loginModal&&(
+        <Modal onClose={()=>{setLoginModal(false);setPw("");setPwErr(false);}}>
+          <div style={{textAlign:"center",marginBottom:20}}>
+            <div style={{fontSize:48,marginBottom:8}}>🔐</div>
+            <h2 style={{margin:"0 0 4px",fontSize:20,background:"linear-gradient(90deg,#dc2626,#fbbf24)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Accès Administrateur</h2>
+          </div>
+          <input type="password" placeholder="••••••••" value={pw} onChange={e=>{setPw(e.target.value);setPwErr(false);}} onKeyDown={e=>e.key==="Enter"&&login()}
+            style={{...inp,textAlign:"center",letterSpacing:4,padding:"12px 16px",border:"1px solid "+(pwErr?"#f87171":"#dc2626")}} autoFocus/>
+          {pwErr&&<div style={{color:"#f87171",fontSize:13,textAlign:"center",marginTop:8}}>❌ Mot de passe incorrect</div>}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>
+            <button onClick={()=>{setLoginModal(false);setPw("");setPwErr(false);}} style={{background:"rgba(0,0,0,0.4)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:10,padding:"11px",color:"#fff",fontWeight:600,cursor:"pointer"}}>Annuler</button>
+            <button onClick={login} style={{background:"linear-gradient(135deg,#dc2626,#b91c1c)",border:"none",borderRadius:10,padding:"11px",color:"#fff",fontWeight:800,cursor:"pointer"}}>Se connecter</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* VIEW */}
+      {modal==="view"&&selected&&(()=>{
+        const cat=getCat(cats,selected.category);
+        return(
+          <Modal onClose={closeModal}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:16}}>
+              <Avatar photo={selected.photo} icon={cat.icon} size={88} color={cat.color}/>
+              <h2 style={{margin:"12px 0 6px",fontSize:22,textAlign:"center",background:"linear-gradient(90deg,#dc2626,#fbbf24)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{selected.name}</h2>
+              <span style={{fontSize:12,background:"rgba(220,38,38,0.2)",color:"#fbbf24",padding:"4px 12px",borderRadius:10,fontWeight:700,border:"1px solid #dc262644"}}>{cat.icon} {cat.label}</span>
+            </div>
+            <div style={{fontSize:14,color:"#e5e7eb",textAlign:"center",marginBottom:18,lineHeight:1.6}}>{selected.description}</div>
+            <div style={{display:"grid",gap:8,marginBottom:18}}>
+              {selected.ville&&<InfoRow icon="📍" label="Ville" value={selected.ville}/>}
+              <InfoRow icon="📞" label="Téléphone" value={selected.phone}/>
+              {selected.whatsapp&&<InfoRow icon="💬" label="WhatsApp" value={selected.whatsapp}/>}
+              {selected.email&&<InfoRow icon="📧" label="Email" value={selected.email}/>}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+              <a href={`https://wa.me/${(selected.whatsapp||"").replace(/\s/g,"")}`} target="_blank" rel="noreferrer" style={{background:"#25d366",borderRadius:10,padding:"10px 8px",color:"#fff",fontWeight:700,fontSize:12,textAlign:"center",textDecoration:"none",display:"block"}}>💬 WhatsApp</a>
+              <a href={`tel:${selected.phone}`} style={{background:"#dc2626",borderRadius:10,padding:"10px 8px",color:"#fff",fontWeight:700,fontSize:12,textAlign:"center",textDecoration:"none",display:"block"}}>📞 Appeler</a>
+              <a href={`mailto:${selected.email}`} style={{background:"#fbbf24",borderRadius:10,padding:"10px 8px",color:"#000",fontWeight:700,fontSize:12,textAlign:"center",textDecoration:"none",display:"block"}}>📧 Email</a>
+            </div>
+            {isAdmin&&(
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:10}}>
+                <button onClick={()=>{closeModal();openEdit(selected);}} style={{background:"rgba(220,38,38,0.2)",border:"1px solid #dc262688",borderRadius:10,padding:"10px",color:"#fbbf24",fontWeight:700,cursor:"pointer"}}>✏️ Modifier</button>
+                <button onClick={()=>{setDelConfirm(selected);closeModal();}} style={{background:"rgba(0,0,0,0.4)",border:"1px solid rgba(248,113,113,0.5)",borderRadius:10,padding:"10px",color:"#f87171",fontWeight:700,cursor:"pointer"}}>🗑️ Supprimer</button>
+              </div>
+            )}
+          </Modal>
+        );
+      })()}
+
+      {/* ADD/EDIT */}
+      {(modal==="add"||modal==="edit")&&(
+        <Modal onClose={closeModal}>
+          <h2 style={{margin:"0 0 18px",fontSize:18,background:"linear-gradient(90deg,#dc2626,#fbbf24)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{modal==="add"?"➕ Nouveau contact":"✏️ Modifier le contact"}</h2>
+          <div style={{display:"grid",gap:12}}>
+            <div><label style={lbl}>Photo</label><PhotoPicker value={form.photo} onChange={v=>setForm(f=>({...f,photo:v}))}/></div>
+            <div><label style={lbl}>Nom *</label><input style={inp} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Nom du professionnel"/></div>
+            <div><label style={lbl}>Domaine</label>
+              <select style={inp} value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))}>
+                {cats.filter(c=>c.id!=="all").map(c=><option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+              </select>
+            </div>
+            <div><label style={lbl}>Téléphone *</label><input style={inp} value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="+225 07 00 00 00"/></div>
+            <div><label style={lbl}>WhatsApp</label><input style={inp} value={form.whatsapp} onChange={e=>setForm(f=>({...f,whatsapp:e.target.value}))} placeholder="+22507000000"/></div>
+            <div><label style={lbl}>Email</label><input style={inp} value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="email@exemple.com"/></div>
+            <div><label style={lbl}>Ville</label><input style={inp} value={form.ville} onChange={e=>setForm(f=>({...f,ville:e.target.value}))} placeholder="ex: Abidjan"/></div>
+            <div><label style={lbl}>Description</label><textarea style={{...inp,resize:"vertical",minHeight:70}} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Décrivez les services proposés..."/></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:20}}>
+            <button onClick={closeModal} style={{background:"rgba(0,0,0,0.4)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:10,padding:"11px",color:"#fff",fontWeight:600,cursor:"pointer"}}>Annuler</button>
+            <button onClick={saveContact} disabled={saving} style={{background:"linear-gradient(135deg,#dc2626,#b91c1c)",border:"none",borderRadius:10,padding:"11px",color:"#fff",fontWeight:800,cursor:"pointer",opacity:saving?.7:1}}>
+              {saving?"⏳ Sauvegarde...":modal==="add"?"Ajouter":"Enregistrer"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* DELETE */}
+      {delConfirm&&(
+        <Modal onClose={()=>setDelConfirm(null)}>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:48,marginBottom:12}}>🗑️</div>
+            <h3 style={{margin:"0 0 8px",color:"#dc2626"}}>Supprimer ce contact ?</h3>
+            <p style={{color:"#e5e7eb",fontSize:14,marginBottom:24}}>« {delConfirm.name} » sera supprimé définitivement.</p>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <button onClick={()=>setDelConfirm(null)} style={{background:"rgba(0,0,0,0.4)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:10,padding:"11px",color:"#fff",fontWeight:600,cursor:"pointer"}}>Annuler</button>
+              <button onClick={()=>deleteContact(delConfirm._id)} style={{background:"linear-gradient(135deg,#ef4444,#dc2626)",border:"none",borderRadius:10,padding:"11px",color:"#fff",fontWeight:800,cursor:"pointer"}}>Supprimer</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* DOMAINES */}
+      {catModal&&(
+        <Modal onClose={()=>setCatModal(false)}>
+          <h2 style={{margin:"0 0 18px",fontSize:18,background:"linear-gradient(90deg,#dc2626,#fbbf24)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>🗂️ Gérer les domaines</h2>
+          <div style={{marginBottom:20}}>
+            {cats.filter(c=>c.id!=="all").map(cat=>(
+              <div key={cat.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",marginBottom:8,background:"rgba(0,0,0,0.4)",border:"1px solid rgba(220,38,38,0.3)",borderRadius:10,borderLeft:"3px solid #dc2626"}}>
+                <span style={{fontSize:20}}>{cat.icon}</span>
+                <span style={{flex:1,fontWeight:600,color:"#fff"}}>{cat.label}</span>
+                <span style={{width:14,height:14,borderRadius:"50%",background:cat.color,display:"inline-block"}}/>
+                {!cat.fixed?<button onClick={()=>setCatDel(cat)} style={{background:"rgba(220,38,38,0.2)",border:"1px solid #dc262666",borderRadius:6,padding:"4px 8px",color:"#f87171",cursor:"pointer",fontSize:13}}>🗑️</button>
+                  :<span style={{fontSize:11,color:"#6b7280",fontStyle:"italic"}}>défaut</span>}
+              </div>
+            ))}
+          </div>
+          <div style={{background:"rgba(220,38,38,0.06)",border:"1px solid rgba(220,38,38,0.3)",borderRadius:12,padding:"16px"}}>
+            <div style={{fontSize:13,color:"#dc2626",fontWeight:700,marginBottom:12}}>➕ Nouveau domaine</div>
+            <div style={{display:"grid",gap:10}}>
+              <div><label style={lbl}>Nom *</label><input style={inp} value={catForm.label} onChange={e=>setCatForm(f=>({...f,label:e.target.value}))} placeholder="ex: Plomberie..."/></div>
+              <div><label style={lbl}>Icône</label><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{CAT_ICONS.map(ic=><button key={ic} onClick={()=>setCatForm(f=>({...f,icon:ic}))} style={{background:catForm.icon===ic?"rgba(220,38,38,0.3)":"rgba(0,0,0,0.3)",border:"1px solid "+(catForm.icon===ic?"#dc2626":"rgba(255,255,255,0.1)"),borderRadius:8,padding:"6px 8px",fontSize:18,cursor:"pointer"}}>{ic}</button>)}</div></div>
+              <div><label style={lbl}>Couleur</label><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{CAT_COLORS.map(col=><button key={col} onClick={()=>setCatForm(f=>({...f,color:col}))} style={{width:28,height:28,borderRadius:"50%",background:col,border:catForm.color===col?"3px solid #fbbf24":"2px solid transparent",cursor:"pointer"}}/>)}</div></div>
+              {catForm.label&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"rgba(0,0,0,0.3)",borderRadius:8}}><span style={{fontSize:13,color:"#9ca3af"}}>Aperçu :</span><span style={{fontSize:12,background:"rgba(220,38,38,0.2)",color:"#fbbf24",padding:"3px 10px",borderRadius:10,fontWeight:700}}>{catForm.icon} {catForm.label}</span></div>}
+            </div>
+            <button onClick={addCat} style={{width:"100%",marginTop:14,background:"linear-gradient(135deg,#dc2626,#b91c1c)",border:"none",borderRadius:10,padding:"11px",color:"#fff",fontWeight:800,cursor:"pointer"}}>Ajouter ce domaine</button>
+          </div>
+        </Modal>
+      )}
+
+      {catDel&&(
+        <Modal onClose={()=>setCatDel(null)}>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:48,marginBottom:12}}>{catDel.icon}</div>
+            <h3 style={{margin:"0 0 8px",color:"#dc2626"}}>Supprimer « {catDel.label} » ?</h3>
+            <p style={{color:"#e5e7eb",fontSize:14,marginBottom:24}}>Les contacts seront déplacés vers "Autre".</p>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <button onClick={()=>setCatDel(null)} style={{background:"rgba(0,0,0,0.4)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:10,padding:"11px",color:"#fff",fontWeight:600,cursor:"pointer"}}>Annuler</button>
+              <button onClick={()=>deleteCat(catDel.id)} style={{background:"linear-gradient(135deg,#ef4444,#dc2626)",border:"none",borderRadius:10,padding:"11px",color:"#fff",fontWeight:800,cursor:"pointer"}}>Supprimer</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+    </div>
+  );
+}
+
+// Mount bg slider then app
+const bgEl=document.getElementById("bg");
+ReactDOM.render(React.createElement(BgSlider),bgEl);
+ReactDOM.render(React.createElement(App),document.getElementById("app"));
+</script>
+</body>
+</html>
